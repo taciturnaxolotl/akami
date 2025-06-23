@@ -19,7 +19,7 @@
     in
     {
       packages = forAllSystems ({ pkgs }: {
-        default = pkgs.buildGoModule rec {
+        default = pkgs.buildGoModule {
           pname = "akami";
           version = "0.0.1";
           subPackages = [ "." ];  # Build from root directory
