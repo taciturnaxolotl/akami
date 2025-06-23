@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -32,6 +33,14 @@ var (
 	ErrDecodingResponse = fmt.Errorf("failed to decode API response")
 	// ErrUnauthorized occurs when the API rejects the provided credentials
 	ErrUnauthorized = fmt.Errorf("unauthorized: invalid API key or insufficient permissions")
+	// ErrNotFound occurs when the config file isn't found
+	ErrNotFound = fmt.Errorf("config file not found")
+	// ErrBrokenConfig occurs when there is no settings section in the config
+	ErrBrokenConfig = fmt.Errorf("invalid config file: missing settings section")
+	// ErrNoApiKey occurs when the api key is missing from the config
+	ErrNoApiKey = fmt.Errorf("no API key found in config file")
+	// ErrNoApiURL occurs when the api url is missing from the config
+	ErrNoApiURL = fmt.Errorf("no API URL found in config file")
 )
 
 // Client represents a WakaTime API client with authentication and connection settings.
@@ -59,7 +68,7 @@ func NewClient(apiKey string) *Client {
 func NewClientWithOptions(apiKey string, apiURL string) *Client {
 	return &Client{
 		APIKey:     apiKey,
-		APIURL:     apiURL,
+		APIURL:     strings.TrimSuffix(apiURL, "/"),
 		HTTPClient: &http.Client{Timeout: 10 * time.Second},
 	}
 }

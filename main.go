@@ -26,7 +26,11 @@ func main() {
 	}
 
 	// diagnose command
-	cmd.AddCommand(handler.Doctor())
+	cmd.AddCommand(&cobra.Command{
+		Use:   "doc",
+		Short: "diagnose potential hackatime issues",
+		RunE:  handler.Doctor,
+	})
 
 	// this is where we get the fancy fang magic ✨
 	if err := fang.Execute(
