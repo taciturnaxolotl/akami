@@ -5,9 +5,11 @@ package wakatime
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"runtime"
 	"time"
 )
 
@@ -79,6 +81,20 @@ type Heartbeat struct {
 	IsWrite bool `json:"is_write,omitempty"`
 	// EditorName is the optional name of the editor or IDE being used
 	EditorName string `json:"editor_name,omitempty"`
+	// Branch is the optional git branch name
+	Branch string `json:"branch,omitempty"`
+	// Category is the optional activity category
+	Category string `json:"category,omitempty"`
+	// LineCount is the optional number of lines in the file
+	LineCount int `json:"lines,omitempty"`
+	// UserAgent is the optional user agent string
+	UserAgent string `json:"user_agent,omitempty"`
+	// EntityType is the optional entity type (usually redundant with Type)
+	EntityType string `json:"entity_type,omitempty"`
+	// Dependencies is an optional list of project dependencies
+	Dependencies []string `json:"dependencies,omitempty"`
+	// ProjectRootCount is the optional number of directories in the project root path
+	ProjectRootCount int `json:"project_root_count,omitempty"`
 }
 
 // StatusBarResponse represents the response from the WakaTime Status Bar API endpoint.
@@ -101,6 +117,11 @@ type StatusBarResponse struct {
 // SendHeartbeat sends a coding activity heartbeat to the WakaTime API.
 // It returns an error if the request fails or returns a non-success status code.
 func (c *Client) SendHeartbeat(heartbeat Heartbeat) error {
+	// Set the user agent in the heartbeat data
+	if heartbeat.UserAgent == "" {
+		heartbeat.UserAgent = "wakatime/unset (" + runtime.GOOS + "-" + runtime.GOARCH + ") akami-wakatime/1.0.0"
+	}
+
 	data, err := json.Marshal(heartbeat)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrMarshalingHeartbeat, err)
@@ -112,7 +133,9 @@ func (c *Client) SendHeartbeat(heartbeat Heartbeat) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Basic "+c.APIKey)
+	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(c.APIKey)))
+	// Set the user agent in the request header as well
+	req.Header.Set("User-Agent", "wakatime/unset ("+runtime.GOOS+"-"+runtime.GOARCH+") akami-wakatime/1.0.0")
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -120,10 +143,19 @@ func (c *Client) SendHeartbeat(heartbeat Heartbeat) error {
 	}
 	defer resp.Body.Close()
 
+	// Read and log the response
+	var respBody bytes.Buffer
+	_, err = respBody.ReadFrom(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	respContent := respBody.String()
+
 	if resp.StatusCode == http.StatusUnauthorized {
-		return ErrUnauthorized
+		return fmt.Errorf("%w: %s", ErrUnauthorized, respContent)
 	} else if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("%w: status code %d", ErrInvalidStatusCode, resp.StatusCode)
+		return fmt.Errorf("%w: status code %d, response: %s", ErrInvalidStatusCode, resp.StatusCode, respContent)
 	}
 
 	return nil
@@ -137,7 +169,7 @@ func (c *Client) GetStatusBar() (StatusBarResponse, error) {
 		return StatusBarResponse{}, fmt.Errorf("%w: %v", ErrCreatingRequest, err)
 	}
 
-	req.Header.Set("Authorization", "Basic "+c.APIKey)
+	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(c.APIKey)))
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -145,15 +177,24 @@ func (c *Client) GetStatusBar() (StatusBarResponse, error) {
 	}
 	defer resp.Body.Close()
 
+	// Read the response body for potential error messages
+	var respBody bytes.Buffer
+	_, err = respBody.ReadFrom(resp.Body)
+	if err != nil {
+		return StatusBarResponse{}, fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	respContent := respBody.String()
+
 	if resp.StatusCode == http.StatusUnauthorized {
-		return StatusBarResponse{}, ErrUnauthorized
+		return StatusBarResponse{}, fmt.Errorf("%w: %s", ErrUnauthorized, respContent)
 	} else if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return StatusBarResponse{}, fmt.Errorf("%w: status code %d", ErrInvalidStatusCode, resp.StatusCode)
+		return StatusBarResponse{}, fmt.Errorf("%w: status code %d, response: %s", ErrInvalidStatusCode, resp.StatusCode, respContent)
 	}
 
 	var durationResp StatusBarResponse
-	if err := json.NewDecoder(resp.Body).Decode(&durationResp); err != nil {
-		return StatusBarResponse{}, fmt.Errorf("%w: %v", ErrDecodingResponse, err)
+	if err := json.Unmarshal(respBody.Bytes(), &durationResp); err != nil {
+		return StatusBarResponse{}, fmt.Errorf("%w: %v, response: %s", ErrDecodingResponse, err, respContent)
 	}
 
 	return durationResp, nil
