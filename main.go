@@ -30,17 +30,25 @@ func main() {
 		Use:   "doc",
 		Short: "diagnose potential hackatime issues",
 		RunE:  handler.Doctor,
+		Args:  cobra.NoArgs,
 	})
 
-	cmdTest := &cobra.Command{
+	cmd.AddCommand(&cobra.Command{
 		Use:   "test",
 		Short: "send a test heartbeat to hackatime or whatever api url you provide",
 		RunE:  handler.TestHeartbeat,
 		Args:  cobra.NoArgs,
-	}
-	cmdTest.Flags().StringP("url", "u", "", "The base url for the hackatime client")
-	cmdTest.Flags().StringP("key", "k", "", "API key to use for authentication")
-	cmd.AddCommand(cmdTest)
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "status",
+		Short: "get your hackatime stats",
+		RunE:  handler.Status,
+		Args:  cobra.NoArgs,
+	})
+
+	cmd.PersistentFlags().StringP("url", "u", "", "The base url for the hackatime client")
+	cmd.PersistentFlags().StringP("key", "k", "", "API key to use for authentication")
 
 	// this is where we get the fancy fang magic ✨
 	if err := fang.Execute(

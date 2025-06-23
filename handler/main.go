@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/taciturnaxolotl/akami/styles"
+	"github.com/taciturnaxolotl/akami/utils"
 	"github.com/taciturnaxolotl/akami/wakatime"
 	"gopkg.in/ini.v1"
 )
@@ -130,6 +131,52 @@ var testHeartbeat = wakatime.Heartbeat{
 	Time:             float64(time.Now().Unix()),
 }
 
+func getClientStuff(c *cobra.Command) (key string, url string, err error) {
+	configApiKey, _ := c.Flags().GetString("key")
+	configApiURL, _ := c.Flags().GetString("url")
+
+	// If either value is missing, try to load from config file
+	if configApiKey == "" || configApiURL == "" {
+		userDir, err := os.UserHomeDir()
+		if err != nil {
+			errorTask(c, "Validating arguments")
+			return configApiKey, configApiURL, err
+		}
+		wakatimePath := filepath.Join(userDir, ".wakatime.cfg")
+
+		cfg, err := ini.Load(wakatimePath)
+		if err != nil {
+			errorTask(c, "Validating arguments")
+			return configApiKey, configApiURL, errors.New("config file not found and you haven't passed all arguments")
+		}
+
+		settings, err := cfg.GetSection("settings")
+		if err != nil {
+			errorTask(c, "Validating arguments")
+			return configApiKey, configApiURL, errors.New("no settings section in your config")
+		}
+
+		// Only load from config if not provided as parameter
+		if configApiKey == "" {
+			configApiKey = settings.Key("api_key").String()
+			if configApiKey == "" {
+				errorTask(c, "Validating arguments")
+				return configApiKey, configApiURL, errors.New("couldn't find an api_key in your config")
+			}
+		}
+
+		if configApiURL == "" {
+			configApiURL = settings.Key("api_url").String()
+			if configApiURL == "" {
+				errorTask(c, "Validating arguments")
+				return configApiKey, configApiURL, errors.New("couldn't find an api_url in your config")
+			}
+		}
+	}
+
+	return configApiKey, configApiURL, nil
+}
+
 func Doctor(c *cobra.Command, _ []string) error {
 	// Initialize a new context with task state
 	c.SetContext(context.WithValue(context.Background(), "taskState", &taskState{}))
@@ -225,22 +272,7 @@ func Doctor(c *cobra.Command, _ []string) error {
 	}
 	completeTask(c, "Checking your coding stats for today")
 
-	// Convert seconds to a formatted time string (hours, minutes, seconds)
-	totalSeconds := duration.Data.GrandTotal.TotalSeconds
-	hours := totalSeconds / 3600
-	minutes := (totalSeconds % 3600) / 60
-	seconds := totalSeconds % 60
-
-	formattedTime := ""
-	if hours > 0 {
-		formattedTime += fmt.Sprintf("%d hours, ", hours)
-	}
-	if minutes > 0 || hours > 0 {
-		formattedTime += fmt.Sprintf("%d minutes, ", minutes)
-	}
-	formattedTime += fmt.Sprintf("%d seconds", seconds)
-
-	c.Printf("Sweet!!! Looks like your hackatime is configured properly! Looks like you have coded today for %s\n\n", styles.Fancy.Render(formattedTime))
+	c.Printf("Sweet!!! Looks like your hackatime is configured properly! Looks like you have coded today for %s\n\n", styles.Fancy.Render(utils.PrettyPrintTime(duration.Data.GrandTotal.TotalSeconds)))
 
 	printTask(c, "Sending test heartbeat")
 
@@ -262,54 +294,14 @@ func TestHeartbeat(c *cobra.Command, args []string) error {
 
 	printTask(c, "Validating arguments")
 
-	configApiKey, _ := c.Flags().GetString("key")
-	configApiURL, _ := c.Flags().GetString("url")
-
-	// If either value is missing, try to load from config file
-	if configApiKey == "" || configApiURL == "" {
-		userDir, err := os.UserHomeDir()
-		if err != nil {
-			errorTask(c, "Validating arguments")
-			return err
-		}
-		wakatimePath := filepath.Join(userDir, ".wakatime.cfg")
-
-		cfg, err := ini.Load(wakatimePath)
-		if err != nil {
-			errorTask(c, "Validating arguments")
-			return errors.New("config file not found and you haven't passed all arguments")
-		}
-
-		settings, err := cfg.GetSection("settings")
-		if err != nil {
-			errorTask(c, "Validating arguments")
-			return errors.New("no settings section in your config")
-		}
-
-		// Only load from config if not provided as parameter
-		if configApiKey == "" {
-			configApiKey = settings.Key("api_key").String()
-			if configApiKey == "" {
-				errorTask(c, "Validating arguments")
-				return errors.New("couldn't find an api_key in your config")
-			}
-		}
-
-		if configApiURL == "" {
-			configApiURL = settings.Key("api_url").String()
-			if configApiURL == "" {
-				errorTask(c, "Validating arguments")
-				return errors.New("couldn't find an api_url in your config")
-			}
-		}
-	}
+	api_key, api_url, err := getClientStuff(c)
 
 	completeTask(c, "Arguments look fine!")
 
 	printTask(c, "Loading api client")
 
-	client := wakatime.NewClientWithOptions(configApiKey, configApiURL)
-	_, err := client.GetStatusBar()
+	client := wakatime.NewClientWithOptions(api_key, api_url)
+	_, err = client.GetStatusBar()
 	if err != nil {
 		errorTask(c, "Loading api client")
 		return err
@@ -317,7 +309,7 @@ func TestHeartbeat(c *cobra.Command, args []string) error {
 
 	completeTask(c, "Loading api client")
 
-	c.Println("Sending a test heartbeat to", styles.Muted.Render(configApiURL))
+	c.Println("Sending a test heartbeat to", styles.Muted.Render(api_url))
 
 	printTask(c, "Sending test heartbeat")
 
@@ -331,6 +323,153 @@ func TestHeartbeat(c *cobra.Command, args []string) error {
 	completeTask(c, "Sending test heartbeat")
 
 	c.Println("❇️ test heartbeat sent!")
+
+	return nil
+}
+
+func Status(c *cobra.Command, args []string) error {
+	// Initialize a new context with task state
+	c.SetContext(context.WithValue(context.Background(), "taskState", &taskState{}))
+
+	printTask(c, "Validating arguments")
+
+	api_key, api_url, err := getClientStuff(c)
+
+	completeTask(c, "Arguments look fine!")
+
+	printTask(c, "Loading api client")
+
+	client := wakatime.NewClientWithOptions(api_key, api_url)
+	status, err := client.GetStatusBar()
+	if err != nil {
+		errorTask(c, "Loading api client")
+		return err
+	}
+
+	completeTask(c, "Loading api client")
+
+	c.Printf("\nLooks like you have coded today for %s today!\n", styles.Fancy.Render(utils.PrettyPrintTime(status.Data.GrandTotal.TotalSeconds)))
+
+	summary, err := client.GetLast7Days()
+	if err != nil {
+		return err
+	}
+
+	c.Printf("You have averaged %s over the last 7 days\n\n", styles.Fancy.Render(utils.PrettyPrintTime(int(summary.Data.DailyAverage))))
+
+	// Display top 5 projects with progress bars
+	if len(summary.Data.Projects) > 0 {
+		c.Println(styles.Fancy.Render("Top Projects:"))
+
+		// Determine how many projects to show (up to 5)
+		count := min(5, len(summary.Data.Projects))
+
+		// Find the longest project name for formatting
+		longestName := 0
+		longestTime := 0
+
+		for i := range count {
+			project := summary.Data.Projects[i]
+			if len(project.Name) > longestName {
+				longestName = len(project.Name)
+			}
+
+			timeStr := utils.PrettyPrintTime(int(project.TotalSeconds))
+			if len(timeStr) > longestTime {
+				longestTime = len(timeStr)
+			}
+		}
+
+		// Display each project with a bar
+		for i := range count {
+			project := summary.Data.Projects[i]
+
+			// Format the project name and time with padding
+			paddedName := fmt.Sprintf("%-*s", longestName+2, project.Name)
+			timeStr := utils.PrettyPrintTime(int(project.TotalSeconds))
+			paddedTime := fmt.Sprintf("%-*s", longestTime+2, timeStr)
+
+			// Create the progress bar
+			barWidth := 25
+			bar := ""
+			percentage := project.Percent
+			for j := range barWidth {
+				if float64(j) < percentage/(100/float64(barWidth)) {
+					bar += "█"
+				} else {
+					bar += "░"
+				}
+			}
+
+			// Use different styles for different components
+			styledName := styles.Fancy.Render(paddedName)
+			styledTime := styles.Muted.Render(paddedTime)
+			styledBar := styles.Success.Render(bar)
+			styledPercent := styles.Warn.Render(fmt.Sprintf("%.2f%%", percentage))
+
+			// Print the formatted line
+			c.Printf("  %s %s %s  %s\n", styledName, styledTime, styledBar, styledPercent)
+		}
+
+		c.Println()
+	}
+
+	// Display top 5 languages with progress bars
+	if len(summary.Data.Languages) > 0 {
+		c.Println(styles.Fancy.Render("Top Languages:"))
+
+		// Determine how many languages to show (up to 5)
+		count := min(5, len(summary.Data.Languages))
+
+		// Find the longest language name for formatting
+		longestName := 0
+		longestTime := 0
+
+		for i := range count {
+			language := summary.Data.Languages[i]
+			if len(language.Name) > longestName {
+				longestName = len(language.Name)
+			}
+
+			timeStr := utils.PrettyPrintTime(int(language.TotalSeconds))
+			if len(timeStr) > longestTime {
+				longestTime = len(timeStr)
+			}
+		}
+
+		// Display each language with a bar
+		for i := range count {
+			language := summary.Data.Languages[i]
+
+			// Format the language name and time with padding
+			paddedName := fmt.Sprintf("%-*s", longestName+2, language.Name)
+			timeStr := utils.PrettyPrintTime(int(language.TotalSeconds))
+			paddedTime := fmt.Sprintf("%-*s", longestTime+2, timeStr)
+
+			// Create the progress bar
+			barWidth := 25
+			bar := ""
+			percentage := language.Percent
+			for j := range barWidth {
+				if float64(j) < percentage/(100/float64(barWidth)) {
+					bar += "█"
+				} else {
+					bar += "░"
+				}
+			}
+
+			// Use different styles for different components
+			styledName := styles.Fancy.Render(paddedName)
+			styledTime := styles.Muted.Render(paddedTime)
+			styledBar := styles.Success.Render(bar)
+			styledPercent := styles.Warn.Render(fmt.Sprintf("%.2f%%", percentage))
+
+			// Print the formatted line
+			c.Printf("  %s %s %s  %s\n", styledName, styledTime, styledBar, styledPercent)
+		}
+
+		c.Println()
+	}
 
 	return nil
 }

@@ -212,3 +212,92 @@ func (c *Client) GetStatusBar() (StatusBarResponse, error) {
 
 	return durationResp, nil
 }
+
+// Last7DaysResponse represents the response from the WakaTime Last 7 Days API endpoint.
+// This contains detailed information about a user's coding activity over the past 7 days.
+type Last7DaysResponse struct {
+	// Data contains coding statistics for the last 7 days
+	Data struct {
+		// TotalSeconds is the total time spent coding in seconds
+		TotalSeconds float64 `json:"total_seconds"`
+		// HumanReadableTotal is the human-readable representation of the total coding time
+		HumanReadableTotal string `json:"human_readable_total"`
+		// DailyAverage is the average time spent coding per day in seconds
+		DailyAverage float64 `json:"daily_average"`
+		// HumanReadableDailyAverage is the human-readable representation of the daily average
+		HumanReadableDailyAverage string `json:"human_readable_daily_average"`
+		// Languages is a list of programming languages used with statistics
+		Languages []struct {
+			// Name is the programming language name
+			Name string `json:"name"`
+			// TotalSeconds is the time spent coding in this language in seconds
+			TotalSeconds float64 `json:"total_seconds"`
+			// Percent is the percentage of time spent in this language
+			Percent float64 `json:"percent"`
+			// Text is the human-readable representation of time spent in this language
+			Text string `json:"text"`
+		} `json:"languages"`
+		// Editors is a list of editors used with statistics
+		Editors []struct {
+			// Name is the editor name
+			Name string `json:"name"`
+			// TotalSeconds is the time spent using this editor in seconds
+			TotalSeconds float64 `json:"total_seconds"`
+			// Percent is the percentage of time spent using this editor
+			Percent float64 `json:"percent"`
+			// Text is the human-readable representation of time spent using this editor
+			Text string `json:"text"`
+		} `json:"editors"`
+		// Projects is a list of projects worked on with statistics
+		Projects []struct {
+			// Name is the project name
+			Name string `json:"name"`
+			// TotalSeconds is the time spent on this project in seconds
+			TotalSeconds float64 `json:"total_seconds"`
+			// Percent is the percentage of time spent on this project
+			Percent float64 `json:"percent"`
+			// Text is the human-readable representation of time spent on this project
+			Text string `json:"text"`
+		} `json:"projects"`
+	} `json:"data"`
+}
+
+// GetLast7Days retrieves a user's coding activity summary for the past 7 days from the WakaTime API.
+// It returns a Last7DaysResponse and an error if the request fails or returns a non-success status code.
+func (c *Client) GetLast7Days() (Last7DaysResponse, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/users/current/stats/last_7_days", c.APIURL), nil)
+	if err != nil {
+		return Last7DaysResponse{}, fmt.Errorf("%w: %v", ErrCreatingRequest, err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(c.APIKey)))
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return Last7DaysResponse{}, fmt.Errorf("%w: %v", ErrSendingRequest, err)
+	}
+	defer resp.Body.Close()
+
+	// Read the response body for potential error messages
+	var respBody bytes.Buffer
+	_, err = respBody.ReadFrom(resp.Body)
+	if err != nil {
+		return Last7DaysResponse{}, fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	respContent := respBody.String()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return Last7DaysResponse{}, fmt.Errorf("%w: %s", ErrUnauthorized, respContent)
+	} else if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return Last7DaysResponse{}, fmt.Errorf("%w: status code %d, response: %s", ErrInvalidStatusCode, resp.StatusCode, respContent)
+	}
+
+	var statsResp Last7DaysResponse
+	if err := json.Unmarshal(respBody.Bytes(), &statsResp); err != nil {
+		return Last7DaysResponse{}, fmt.Errorf("%w: %v, response: %s", ErrDecodingResponse, err, respContent)
+	}
+
+	return statsResp, nil
+}
