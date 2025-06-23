@@ -4,10 +4,6 @@ The cutsie [hackatime](https://hackatime.hackclub.com/) helper. Helping solve co
 
 ![vhs gif of the cli](https://raw.githubusercontent.com/taciturnaxolotl/akami/main/.github/images/out.gif)
 
-```bash
-go run github.com/taciturnaxolotl/akami@latest
-```
-
 ## Install
 
 You can download a pre-built binary from the releases or you can use the following options
