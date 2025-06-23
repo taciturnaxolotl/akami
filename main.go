@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/charmbracelet/fang"
 	"github.com/charmbracelet/lipgloss/v2"
@@ -114,6 +115,27 @@ func main() {
 			formattedTime += fmt.Sprintf("%d seconds", seconds)
 
 			c.Println("\nSweet!!! Looks like your hackatime is configured properly! Looks like you have coded today for", fancy.Render(formattedTime))
+
+			c.Println("\nSending one quick heartbeat to make sure everything is ship shape and then you should be good to go!")
+
+			err = client.SendHeartbeat(wakatime.Heartbeat{
+				Entity:           "/home/kierank/Projects/akami/wakatime/main.go",
+				Type:             "file",
+				Project:          "akami",
+				Language:         "Go",
+				Branch:           "main",
+				Category:         "coding",
+				IsWrite:          true,
+				LineCount:        197,
+				ProjectRootCount: 5,
+				Dependencies:     []string{"bytes", "encoding/base64", "encoding/json", "net/http", "runtime", "time"},
+				Time:             1750643351,
+			})
+			if err != nil {
+				return errors.New("oh dear; looks like something went wrong when sending that heartbeat. " + bad.Render("Full error: \""+strings.TrimSpace(err.Error())+"\""))
+			}
+
+			c.Println("\n🥳 it worked! you are good to go! Happy coding 👋")
 
 			return nil
 		},
