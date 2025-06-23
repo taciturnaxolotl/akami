@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -26,13 +27,9 @@ func Doctor() *cobra.Command {
 			if err != nil {
 				return errors.New("somehow your user doesn't exist? fairly sure this should never happen; plz report this to @krn on slack or via email at me@dunkirk.sh")
 			}
-			hackatime_path := user_dir + "/.wakatime.cfg"
+			hackatime_path := filepath.Join(user_dir, ".wakatime.cfg")
 
-			switch os_name {
-			case "linux":
-			case "darwin":
-			case "windows":
-			default:
+			if os_name != "linux" && os_name != "darwin" && os_name != "windows" {
 				return errors.New("hmm you don't seem to be running a recognized os? you are listed as running " + styles.Fancy.Render(os_name) + "; can you plz report this to @krn on slack or via email at me@dunkirk.sh?")
 			}
 
@@ -62,7 +59,8 @@ func Doctor() *cobra.Command {
 				return errors.New("hmm 🤔 looks like you don't have an api_url in your config file? are you sure you have followed the setup instructions at " + styles.Muted.Render("https://hackatime.hackclub.com/my/wakatime_setup") + " correctly?")
 			}
 
-			if api_url != "https://hackatime.hackclub.com/api/hackatime/v1" {
+			correctApiUrl := "https://hackatime.hackclub.com/api/hackatime/v1"
+			if api_url != correctApiUrl {
 				if api_url == "https://api.wakatime.com/api/v1" {
 					client := wakatime.NewClient(api_key)
 					_, err := client.GetStatusBar()
@@ -73,10 +71,11 @@ func Doctor() *cobra.Command {
 						return errors.New("turns out your config is connected to the wrong api url and is trying to use wakatime.com to sync time but you don't have a working api key from them. Go to " + styles.Muted.Render("https://hackatime.hackclub.com/my/wakatime_setup") + " to run the setup script and fix your config file")
 					}
 				}
-				c.Println("\nYour api url", styles.Muted.Render(api_url), "doesn't match the expected url of", styles.Muted.Render("https://hackatime.hackclub.com/api/hackatime/v1"), "however if you are using a custom forwarder or are sure you know what you are doing then you are probably fine")
+				c.Println("\nYour api url", styles.Muted.Render(api_url), "doesn't match the expected url of", styles.Muted.Render(correctApiUrl), "however if you are using a custom forwarder or are sure you know what you are doing then you are probably fine")
 			}
 
 			client := wakatime.NewClientWithOptions(api_key, api_url)
+			c.Println("\nChecking your coding stats for today...")
 			duration, err := client.GetStatusBar()
 			if err != nil {
 				if errors.Is(err, wakatime.ErrUnauthorized) {
@@ -109,7 +108,7 @@ func Doctor() *cobra.Command {
 				Branch:           "main",
 				Category:         "coding",
 				CursorPos:        1,
-				Entity:           user_dir + "/akami.txt",
+				Entity:           filepath.Join(user_dir, "akami.txt"),
 				Type:             "file",
 				IsWrite:          true,
 				Language:         "Go",
@@ -128,5 +127,4 @@ func Doctor() *cobra.Command {
 			return nil
 		},
 	}
-
 }
