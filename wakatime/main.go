@@ -87,6 +87,10 @@ type Heartbeat struct {
 	Category string `json:"category,omitempty"`
 	// LineCount is the optional number of lines in the file
 	LineCount int `json:"lines,omitempty"`
+	// LineNo is the current line number
+	LineNo int `json:"lineno,omitempty"`
+	// CursorPos is the current column of text the cursor is on
+	CursorPos int `json:"cursorpos,omitempty"`
 	// UserAgent is the optional user agent string
 	UserAgent string `json:"user_agent,omitempty"`
 	// EntityType is the optional entity type (usually redundant with Type)
@@ -127,7 +131,7 @@ func (c *Client) SendHeartbeat(heartbeat Heartbeat) error {
 		return fmt.Errorf("%w: %v", ErrMarshalingHeartbeat, err)
 	}
 
-	req, err := http.NewRequest("POST", c.APIURL+"/users/current/heartbeats", bytes.NewBuffer(data))
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/users/current/statusbar/today", c.APIURL), bytes.NewBuffer(data))
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrCreatingRequest, err)
 	}

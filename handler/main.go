@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/taciturnaxolotl/akami/styles"
@@ -105,17 +106,18 @@ func Doctor() *cobra.Command {
 			c.Println("\nSending one quick heartbeat to make sure everything is ship shape and then you should be good to go!")
 
 			err = client.SendHeartbeat(wakatime.Heartbeat{
-				Entity:           "/home/kierank/Projects/akami/wakatime/main.go",
-				Type:             "file",
-				Project:          "akami",
-				Language:         "Go",
 				Branch:           "main",
 				Category:         "coding",
+				CursorPos:        1,
+				Entity:           user_dir + "/akami.txt",
+				Type:             "file",
 				IsWrite:          true,
-				LineCount:        197,
-				ProjectRootCount: 5,
-				Dependencies:     []string{"bytes", "encoding/base64", "encoding/json", "net/http", "runtime", "time"},
-				Time:             1750643351,
+				Language:         "Go",
+				LineNo:           1,
+				LineCount:        4,
+				Project:          "example",
+				ProjectRootCount: 3,
+				Time:             float64(time.Now().Unix()),
 			})
 			if err != nil {
 				return errors.New("oh dear; looks like something went wrong when sending that heartbeat. " + styles.Bad.Render("Full error: \""+strings.TrimSpace(err.Error())+"\""))
