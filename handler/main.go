@@ -39,7 +39,7 @@ func Doctor() *cobra.Command {
 
 			rawCfg, err := os.ReadFile(hackatime_path)
 			if errors.Is(err, os.ErrNotExist) {
-				return errors.New("you don't have a wakatime config file! go check https://hackatime.hackclub.com/my/wakatime_setup for the instructions and then try this again")
+				return errors.New("you don't have a wakatime config file! go check " + styles.Muted.Render("https://hackatime.hackclub.com/my/wakatime_setup") + " for the instructions and then try this again")
 			}
 
 			cfg, err := ini.Load(rawCfg)
@@ -49,16 +49,16 @@ func Doctor() *cobra.Command {
 
 			settings, err := cfg.GetSection("settings")
 			if err != nil {
-				return errors.New("wow! your config file seems to be messed up and doesn't have a settings heading; can you follow the instructions at https://hackatime.hackclub.com/my/wakatime_setup to regenerate it?\n\nThe raw error we got was: " + err.Error())
+				return errors.New("wow! your config file seems to be messed up and doesn't have a settings heading; can you follow the instructions at " + styles.Muted.Render("https://hackatime.hackclub.com/my/wakatime_setup") + " to regenerate it?\n\nThe raw error we got was: " + err.Error())
 			}
 
 			api_key := settings.Key("api_key").String()
 			api_url := settings.Key("api_url").String()
 			if api_key == "" {
-				return errors.New("hmm 🤔 looks like you don't have an api_key in your config file? are you sure you have followed the setup instructions at https://hackatime.hackclub.com/my/wakatime_setup correctly?")
+				return errors.New("hmm 🤔 looks like you don't have an api_key in your config file? are you sure you have followed the setup instructions at " + styles.Muted.Render("https://hackatime.hackclub.com/my/wakatime_setup") + " correctly?")
 			}
 			if api_url == "" {
-				return errors.New("hmm 🤔 looks like you don't have an api_url in your config file? are you sure you have followed the setup instructions at https://hackatime.hackclub.com/my/wakatime_setup correctly?")
+				return errors.New("hmm 🤔 looks like you don't have an api_url in your config file? are you sure you have followed the setup instructions at " + styles.Muted.Render("https://hackatime.hackclub.com/my/wakatime_setup") + " correctly?")
 			}
 
 			if api_url != "https://hackatime.hackclub.com/api/hackatime/v1" {
@@ -67,9 +67,9 @@ func Doctor() *cobra.Command {
 					_, err := client.GetStatusBar()
 
 					if !errors.Is(err, wakatime.ErrUnauthorized) {
-						return errors.New("turns out you were connected to wakatime.com instead of hackatime; since your key seems to work if you would like to keep syncing data to wakatime.com as well as to hackatime you can either setup a realy serve like " + styles.Muted.Render("https://github.com/JasonLovesDoggo/multitime") + " or you can wait for https://github.com/hackclub/hackatime/issues/85 to get merged in hackatime and have it synced there :)\n\nIf you want to import your wakatime.com data into hackatime then you can use hackatime v1 temporarily to connect your wakatime account and import (in settings under integrations at https://waka.hackclub.com) and then click the import from hackatime v1 button at https://hackatime.hackclub.com/my/settings.\n\n If you have more questions feel free to reach out to me (hackatime v1 creator) on slack (at @krn) or via email at me@dunkirk.sh")
+						return errors.New("turns out you were connected to wakatime.com instead of hackatime; since your key seems to work if you would like to keep syncing data to wakatime.com as well as to hackatime you can either setup a realy serve like " + styles.Muted.Render("https://github.com/JasonLovesDoggo/multitime") + " or you can wait for " + styles.Muted.Render("https://github.com/hackclub/hackatime/issues/85") + " to get merged in hackatime and have it synced there :)\n\nIf you want to import your wakatime.com data into hackatime then you can use hackatime v1 temporarily to connect your wakatime account and import (in settings under integrations at " + styles.Muted.Render("https://waka.hackclub.com") + ") and then click the import from hackatime v1 button at " + styles.Muted.Render("https://hackatime.hackclub.com/my/settings") + ".\n\n If you have more questions feel free to reach out to me (hackatime v1 creator) on slack (at @krn) or via email at me@dunkirk.sh")
 					} else {
-						return errors.New("turns out your config is connected to the wrong api url and is trying to use wakatime.com to sync time but you don't have a working api key from them. Go to https://hackatime.hackclub.com/my/wakatime_setup to run the setup script and fix your config file")
+						return errors.New("turns out your config is connected to the wrong api url and is trying to use wakatime.com to sync time but you don't have a working api key from them. Go to " + styles.Muted.Render("https://hackatime.hackclub.com/my/wakatime_setup") + " to run the setup script and fix your config file")
 					}
 				}
 				c.Println("\nYour api url", styles.Muted.Render(api_url), "doesn't match the expected url of", styles.Muted.Render("https://hackatime.hackclub.com/api/hackatime/v1"), "however if you are using a custom forwarder or are sure you know what you are doing then you are probably fine")
@@ -79,7 +79,7 @@ func Doctor() *cobra.Command {
 			duration, err := client.GetStatusBar()
 			if err != nil {
 				if errors.Is(err, wakatime.ErrUnauthorized) {
-					return errors.New("Your config file looks mostly correct and you have the correct api url but when we tested your api_key it looks like it is invalid? Can you double check if the key in your config file is the same as at https://hackatime.hackclub.com/my/wakatime_setup?")
+					return errors.New("Your config file looks mostly correct and you have the correct api url but when we tested your api_key it looks like it is invalid? Can you double check if the key in your config file is the same as at " + styles.Muted.Render("https://hackatime.hackclub.com/my/wakatime_setup") + "?")
 				}
 
 				return errors.New("Something weird happened with the hackatime api; if the error doesn't make sense then please contact @krn on slack or via email at me@dunkirk.sh\n\n" + styles.Bad.Render("Full error: "+err.Error()))
