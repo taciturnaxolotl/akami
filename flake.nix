@@ -39,6 +39,33 @@
               go build -o ./bin/akami ./main.go
               ./bin/akami "$@" || true
             '')
+            (pkgs.writeShellScriptBin "akami-build" ''
+              echo "Building akami binaries for all platforms..."
+              mkdir -p $PWD/bin
+
+              # Build for Linux (64-bit)
+              echo "Building for Linux (x86_64)..."
+              GOOS=linux GOARCH=amd64 go build -o $PWD/bin/akami-linux-amd64 ./main.go
+
+              # Build for Linux ARM (64-bit)
+              echo "Building for Linux (aarch64)..."
+              GOOS=linux GOARCH=arm64 go build -o $PWD/bin/akami-linux-arm64 ./main.go
+
+              # Build for macOS (64-bit Intel)
+              echo "Building for macOS (x86_64)..."
+              GOOS=darwin GOARCH=amd64 go build -o $PWD/bin/akami-darwin-amd64 ./main.go
+
+              # Build for macOS ARM (64-bit)
+              echo "Building for macOS (aarch64)..."
+              GOOS=darwin GOARCH=arm64 go build -o $PWD/bin/akami-darwin-arm64 ./main.go
+
+              # Build for Windows (64-bit)
+              echo "Building for Windows (x86_64)..."
+              GOOS=windows GOARCH=amd64 go build -o $PWD/bin/akami-windows-amd64.exe ./main.go
+
+              echo "All binaries built successfully in $PWD/bin/"
+              ls -la $PWD/bin/
+            '')
           ];
 
           shellHook = ''
@@ -59,6 +86,10 @@
             go build -o ./bin/akami ./main.go
             ./bin/akami $* || true
           '');
+        };
+        akami-build = {
+          type = "app";
+          program = "${self.devShells.${pkgs.system}.default.inputDerivation}/bin/akami-build";
         };
       });
     };
