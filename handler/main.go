@@ -255,3 +255,82 @@ func Doctor(c *cobra.Command, _ []string) error {
 
 	return nil
 }
+
+func TestHeartbeat(c *cobra.Command, args []string) error {
+	// Initialize a new context with task state
+	c.SetContext(context.WithValue(context.Background(), "taskState", &taskState{}))
+
+	printTask(c, "Validating arguments")
+
+	configApiKey, _ := c.Flags().GetString("key")
+	configApiURL, _ := c.Flags().GetString("url")
+
+	// If either value is missing, try to load from config file
+	if configApiKey == "" || configApiURL == "" {
+		userDir, err := os.UserHomeDir()
+		if err != nil {
+			errorTask(c, "Validating arguments")
+			return err
+		}
+		wakatimePath := filepath.Join(userDir, ".wakatime.cfg")
+
+		cfg, err := ini.Load(wakatimePath)
+		if err != nil {
+			errorTask(c, "Validating arguments")
+			return errors.New("config file not found and you haven't passed all arguments")
+		}
+
+		settings, err := cfg.GetSection("settings")
+		if err != nil {
+			errorTask(c, "Validating arguments")
+			return errors.New("no settings section in your config")
+		}
+
+		// Only load from config if not provided as parameter
+		if configApiKey == "" {
+			configApiKey = settings.Key("api_key").String()
+			if configApiKey == "" {
+				errorTask(c, "Validating arguments")
+				return errors.New("couldn't find an api_key in your config")
+			}
+		}
+
+		if configApiURL == "" {
+			configApiURL = settings.Key("api_url").String()
+			if configApiURL == "" {
+				errorTask(c, "Validating arguments")
+				return errors.New("couldn't find an api_url in your config")
+			}
+		}
+	}
+
+	completeTask(c, "Arguments look fine!")
+
+	printTask(c, "Loading api client")
+
+	client := wakatime.NewClientWithOptions(configApiKey, configApiURL)
+	_, err := client.GetStatusBar()
+	if err != nil {
+		errorTask(c, "Loading api client")
+		return err
+	}
+
+	completeTask(c, "Loading api client")
+
+	c.Println("Sending a test heartbeat to", styles.Muted.Render(configApiURL))
+
+	printTask(c, "Sending test heartbeat")
+
+	err = client.SendHeartbeat(testHeartbeat)
+
+	if err != nil {
+		errorTask(c, "Sending test heartbeat")
+		return err
+	}
+
+	completeTask(c, "Sending test heartbeat")
+
+	c.Println("❇️ test heartbeat sent!")
+
+	return nil
+}
